@@ -7,7 +7,7 @@ import { useSocket } from '@/hooks/useSocket';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { UserVideo } from '@/components/media/UserVideo';
 import { Chat } from '@/components/chat/Chat';
-import { Users, Share2, Settings, Lock, MonitorUp, MessageSquare, X, Mic, MicOff, Video, VideoOff, PhoneOff, Copy, Check, UserPlus } from 'lucide-react';
+import { Users, Share2, Settings, Lock, MonitorUp, MonitorOff, MessageSquare, X, Mic, MicOff, Video, VideoOff, PhoneOff, Copy, Check, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function RoomPage() {
@@ -506,10 +506,10 @@ export default function RoomPage() {
           {canShareScreen && (
             <button
               onClick={shareScreen}
-              className={`flex flex-col items-center gap-1 p-2 rounded-2xl min-w-[56px] transition-colors ${isScreenSharing ? 'bg-primary/30' : 'bg-white/5'}`}
+              className={`flex flex-col items-center gap-1 p-2 rounded-2xl min-w-[56px] transition-colors ${isScreenSharing ? 'bg-primary/20' : 'bg-white/5'}`}
             >
-              <MonitorUp size={22} className={isScreenSharing ? 'text-primary' : 'text-white/80'} />
-              <span className="text-[9px] text-white/40">{isScreenSharing ? 'Sharing' : 'Share'}</span>
+              {isScreenSharing ? <MonitorOff size={22} className="text-primary" /> : <MonitorUp size={22} className="text-white/80" />}
+              <span className="text-[9px] text-white/40">{isScreenSharing ? 'Stop' : 'Share'}</span>
             </button>
           )}
 

@@ -240,7 +240,28 @@ export const useWebRTC = (roomId: string, userId: string, socket: Socket | null)
     };
   }, [socket, roomId, userId, localStream, room]);
 
+  const stopScreenShare = () => {
+    setIsScreenSharing(false);
+    if (localScreenStream) {
+      localScreenStream.getTracks().forEach(track => track.stop());
+      peers.current.forEach((pc, targetId) => {
+        localScreenStream.getTracks().forEach(track => {
+          const sender = pc.getSenders().find(s => s.track === track);
+          if (sender) pc.removeTrack(sender);
+        });
+        socket?.emit('SIGNALING', { roomId, targetId, senderId: userId, signal: { type: 'screen_share_stop' } });
+      });
+    }
+    setLocalScreenStream(null);
+    setActiveScreenSharer(null);
+  };
+
   const shareScreen = async () => {
+    if (isScreenSharing) {
+      stopScreenShare();
+      return;
+    }
+
     try {
       const screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: {
@@ -265,19 +286,7 @@ export const useWebRTC = (roomId: string, userId: string, socket: Socket | null)
       const screenVideoTrack = screenStream.getVideoTracks()[0];
       if (screenVideoTrack) {
         screenVideoTrack.onended = () => {
-          setIsScreenSharing(false);
-          setLocalScreenStream(null);
-          setActiveScreenSharer(null);
-
-          peers.current.forEach((pc, targetId) => {
-            screenStream.getTracks().forEach(track => {
-              const sender = pc.getSenders().find(s => s.track === track);
-              if (sender) {
-                pc.removeTrack(sender);
-              }
-            });
-            socket?.emit('SIGNALING', { roomId, targetId, senderId: userId, signal: { type: 'screen_share_stop' } });
-          });
+          stopScreenShare();
         };
       }
     } catch (err: any) {
