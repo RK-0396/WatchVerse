@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  devIndicators: false,
   allowedDevOrigins: ['stony-hardener-emergency.ngrok-free.dev'],
   async rewrites() {
     return [

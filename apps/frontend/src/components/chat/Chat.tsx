@@ -48,7 +48,7 @@ export const Chat = ({ messages, onSendMessage, currentUserId }: ChatProps) => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-background/20 backdrop-blur-3xl overflow-hidden border-t border-white/5">
+    <div className="flex flex-col h-full bg-transparent overflow-hidden border-t border-white/5">
       <div className="p-5 border-b border-white/5 flex items-center justify-between">
         <h3 className="text-xs font-bold text-white/30 uppercase tracking-[0.2em]">Live Chat</h3>
         <div className="flex items-center gap-1.5">
@@ -101,36 +101,39 @@ export const Chat = ({ messages, onSendMessage, currentUserId }: ChatProps) => {
         })}
       </div>
 
-      <form onSubmit={handleSubmit} className="p-4 bg-black/20 border-t border-white/10 flex gap-2 relative">
+      <form onSubmit={handleSubmit} className="p-4 bg-transparent border-t border-white/5 flex gap-3 relative">
         {showEmojiPicker && (
-          <div className="absolute bottom-full right-4 mb-2 z-50 shadow-2xl">
+          <div className="absolute bottom-full right-4 mb-2 z-50 shadow-2xl bg-[#1a1425] border border-white/10 rounded-2xl overflow-hidden">
             <EmojiPicker 
               theme={Theme.DARK} 
               emojiStyle={EmojiStyle.NATIVE} 
               onEmojiClick={onEmojiClick}
               lazyLoadEmojis={true}
-              height={350}
+              height={400}
+              width={320}
             />
           </div>
         )}
-        <Button 
-          type="button" 
-          variant="ghost" 
-          size="sm" 
-          className={`w-10 h-10 p-0 rounded-xl hover:bg-white/5 ${showEmojiPicker ? 'text-primary bg-primary/10' : 'text-white/40'}`}
-          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-        >
-          <Smile size={20} />
-        </Button>
-        <input 
-          ref={inputRef}
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Type a message..."
-          className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 outline-none focus:border-primary/50 transition-colors"
-        />
-        <Button type="submit" size="sm" className="w-10 h-10 p-0 rounded-xl bg-primary hover:bg-primary/90 text-white">
+        <div className="flex-1 flex items-center bg-white/[0.03] border border-white/10 rounded-2xl focus-within:border-primary/30 transition-colors">
+          <Button 
+            type="button" 
+            variant="ghost" 
+            size="sm" 
+            className={`w-10 h-10 p-0 rounded-l-2xl hover:bg-white/5 flex-shrink-0 ${showEmojiPicker ? 'text-primary bg-primary/10' : 'text-white/30'}`}
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+          >
+            <Smile size={20} />
+          </Button>
+          <input 
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Type a message..."
+            className="flex-1 bg-transparent border-none outline-none text-sm text-white placeholder-white/20 px-2 py-2.5"
+          />
+        </div>
+        <Button type="submit" size="sm" className="w-10 h-10 p-0 rounded-2xl bg-primary hover:bg-primary/90 text-white flex-shrink-0 shadow-lg shadow-primary/20">
           <Send size={18} />
         </Button>
       </form>

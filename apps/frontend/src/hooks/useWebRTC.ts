@@ -28,7 +28,7 @@ export const useWebRTC = (roomId: string, userId: string, socket: Socket | null)
         canvas.height = 480;
         const ctx = canvas.getContext('2d');
         const stream = (canvas as any).captureStream(30);
-        
+
         // Continuously draw to the canvas so the stream actually emits frames
         if (ctx) {
           setInterval(() => {
@@ -37,7 +37,7 @@ export const useWebRTC = (roomId: string, userId: string, socket: Socket | null)
             ctx.fillStyle = '#8b5cf6';
             ctx.font = '30px Arial';
             ctx.fillText('Camera Offline', 220, 240);
-            
+
             // Add a small bouncing dot to ensure frames are changing
             const time = Date.now() / 1000;
             const y = 280 + Math.sin(time * 5) * 10;
@@ -46,7 +46,7 @@ export const useWebRTC = (roomId: string, userId: string, socket: Socket | null)
             ctx.fill();
           }, 1000 / 30);
         }
-        
+
         setLocalStream(stream);
       }
     };
@@ -62,7 +62,21 @@ export const useWebRTC = (roomId: string, userId: string, socket: Socket | null)
 
       console.log(`Creating PeerConnection to ${targetId} (Initiator: ${isInitiator})`);
       const pc = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
+          { urls: 'stun:stun3.l.google.com:19302' },
+          { urls: 'stun:stun4.l.google.com:19302' },
+          // IMPORTANT: For WebRTC to work across different networks (e.g. mobile data vs home Wi-Fi),
+          // you need to add a TURN server here. STUN only works for direct P2P when NATs are cooperative.
+          // Example: { urls: 'turn:your-turn-server.com', username: 'username', credential: 'password' }
+          {
+            urls: "turn:global.relay.metered.ca:80",
+            username: "97c6b3266c1531a2a845027e",
+            credential: "tzAMnyM0GTp6tall",
+          }
+        ],
       });
 
       peers.current.set(targetId, pc);
@@ -85,7 +99,7 @@ export const useWebRTC = (roomId: string, userId: string, socket: Socket | null)
       pc.ontrack = (event) => {
         console.log(`Received track from ${targetId}`, event.track.kind);
         const stream = event.streams[0];
-        
+
         setStreams(prev => {
           const next = new Map(prev);
           const existingStream = next.get(targetId);
@@ -96,12 +110,12 @@ export const useWebRTC = (roomId: string, userId: string, socket: Socket | null)
           }
           return next;
         });
-        
+
         setScreenStreams(prev => {
-           const next = new Map(prev);
-           // Store every stream received
-           next.set(`${targetId}_${stream.id}`, stream);
-           return next;
+          const next = new Map(prev);
+          // Store every stream received
+          next.set(`${targetId}_${stream.id}`, stream);
+          return next;
         });
       };
 
@@ -228,15 +242,15 @@ export const useWebRTC = (roomId: string, userId: string, socket: Socket | null)
 
   const shareScreen = async () => {
     try {
-      const screenStream = await navigator.mediaDevices.getDisplayMedia({ 
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: {
           width: { ideal: 1920, max: 3840 },
           height: { ideal: 1080, max: 2160 },
           frameRate: { ideal: 30, max: 60 }
-        }, 
-        audio: true 
+        },
+        audio: true
       });
-      
+
       setLocalScreenStream(screenStream);
       setIsScreenSharing(true);
       setActiveScreenSharer(userId);
@@ -254,7 +268,7 @@ export const useWebRTC = (roomId: string, userId: string, socket: Socket | null)
           setIsScreenSharing(false);
           setLocalScreenStream(null);
           setActiveScreenSharer(null);
-          
+
           peers.current.forEach((pc, targetId) => {
             screenStream.getTracks().forEach(track => {
               const sender = pc.getSenders().find(s => s.track === track);

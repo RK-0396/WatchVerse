@@ -3,7 +3,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { MicOff, Maximize } from 'lucide-react';
 
-export const UserVideo = ({ stream, muted = false, label, className, isMicMuted, isVideoOff, username }: { stream: MediaStream | null; muted?: boolean; label: string; className?: string; isMicMuted?: boolean; isVideoOff?: boolean; username?: string }) => {
+export const UserVideo = ({ stream, muted = false, label, className, isMicMuted, isVideoOff, username }: { stream: MediaStream | null; muted?: boolean; label: React.ReactNode; className?: string; isMicMuted?: boolean; isVideoOff?: boolean; username?: string }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
 
@@ -84,7 +84,7 @@ export const UserVideo = ({ stream, muted = false, label, className, isMicMuted,
       ) : isVideoOff ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40">
           <div className="w-16 h-16 rounded-full bg-primary/20 border border-primary/50 flex items-center justify-center text-2xl font-bold text-primary">
-            {username ? username.charAt(0).toUpperCase() : label.charAt(0).toUpperCase()}
+            {username ? username.charAt(0).toUpperCase() : (typeof label === 'string' ? label.charAt(0).toUpperCase() : '?')}
           </div>
         </div>
       ) : (

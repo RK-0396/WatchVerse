@@ -7,7 +7,7 @@ import { useSocket } from '@/hooks/useSocket';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { UserVideo } from '@/components/media/UserVideo';
 import { Chat } from '@/components/chat/Chat';
-import { Users, Share2, Settings, Lock, MonitorUp, MessageSquare, X, Mic, MicOff, Video, VideoOff, PhoneOff, Copy, Check } from 'lucide-react';
+import { Users, Share2, Settings, Lock, MonitorUp, MessageSquare, X, Mic, MicOff, Video, VideoOff, PhoneOff, Copy, Check, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function RoomPage() {
@@ -22,6 +22,8 @@ export default function RoomPage() {
   const passcode = searchParams.get('passcode') || undefined;
   const [showSettings, setShowSettings] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(360);
+  const [isResizing, setIsResizing] = useState(false);
   const [allowControl, setAllowControl] = useState(true);
   const [darkMode, setDarkMode] = useState(true);
   const [showParticipants, setShowParticipants] = useState(false);
@@ -32,6 +34,33 @@ export default function RoomPage() {
   const [copied, setCopied] = useState(false);
   const [flashMessage, setFlashMessage] = useState<{username: string, content: string} | null>(null);
   const flashTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const [showControls, setShowControls] = useState(true);
+  const controlsTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    const handleActivity = () => {
+      setShowControls(true);
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+      controlsTimeoutRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 3000);
+    };
+
+    window.addEventListener('mousemove', handleActivity);
+    window.addEventListener('touchstart', handleActivity);
+    window.addEventListener('keydown', handleActivity);
+
+    controlsTimeoutRef.current = setTimeout(() => {
+      setShowControls(false);
+    }, 3000);
+
+    return () => {
+      window.removeEventListener('mousemove', handleActivity);
+      window.removeEventListener('touchstart', handleActivity);
+      window.removeEventListener('keydown', handleActivity);
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    };
+  }, []);
 
   const urlUsername = searchParams.get('username');
   const [userId, setUserId] = useState<string>('');
@@ -118,6 +147,27 @@ export default function RoomPage() {
     return () => { socket?.off('SIGNALING', handleSignaling); };
   }, [socket]);
 
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      const newWidth = window.innerWidth - e.clientX;
+      if (newWidth > 200 && newWidth < 600) {
+        setSidebarWidth(newWidth);
+      }
+    };
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+    if (isResizing) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
+
   const handleAllowControlChange = (val: boolean) => {
     setAllowControl(val);
     room?.participants.forEach(p => { if (p.id !== userId) emitSignaling(p.id, { type: 'settings_sync', allowControl: val }); });
@@ -160,7 +210,7 @@ export default function RoomPage() {
       style={{ filter: darkMode ? 'none' : 'invert(1) hue-rotate(180deg)' }}
     >
       {/* ── TOP BAR ── */}
-      <header className="h-14 shrink-0 flex items-center justify-between px-4 bg-black/40 backdrop-blur-xl border-b border-white/5 z-20">
+      <header className="h-14 shrink-0 flex items-center justify-between px-4 bg-black/40 backdrop-blur-xl border-b border-white/5 z-30">
         {/* Left: Logo + Room info */}
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-7 h-7 bg-primary rounded-lg flex items-center justify-center font-bold text-white text-xs shadow-lg shrink-0">W</div>
@@ -193,15 +243,18 @@ export default function RoomPage() {
             {showShare && (
               <div className="absolute right-0 top-full mt-2 w-52 bg-[#0d0720] border border-white/10 rounded-2xl shadow-2xl p-2 z-50">
                 <p className="text-[10px] text-white/30 uppercase tracking-widest px-2 mb-1">Share via</p>
-                {[
-                  { label: '💬 WhatsApp', action: () => { const t = encodeURIComponent(`Join WatchVerse! Room: ${roomId} Link: ${window.location.href}`); window.open(`https://wa.me/?text=${t}`, '_blank'); setShowShare(false); } },
-                  { label: '📧 Email', action: () => { window.location.href = `mailto:?subject=Join WatchVerse&body=${encodeURIComponent(`Room: ${roomId}\n${window.location.href}`)}`; setShowShare(false); } },
-                  { label: '🔗 Copy Link', action: () => { navigator.clipboard.writeText(window.location.href); alert('Link copied!'); setShowShare(false); } },
-                ].map(item => (
-                  <button key={item.label} onClick={item.action} className="w-full text-left px-3 py-2 text-sm text-white/70 hover:bg-white/5 rounded-xl transition-colors">
-                    {item.label}
-                  </button>
-                ))}
+                {(() => {
+                  const joinUrl = `${window.location.origin}/room/${roomId}${passcode ? `?passcode=${passcode}` : ''}`;
+                  return [
+                    { label: '💬 WhatsApp', action: () => { const t = encodeURIComponent(`Join WatchVerse! Room: ${roomId} Link: ${joinUrl}`); window.open(`https://wa.me/?text=${t}`, '_blank'); setShowShare(false); } },
+                    { label: '📧 Email', action: () => { window.location.href = `mailto:?subject=Join WatchVerse&body=${encodeURIComponent(`Room: ${roomId}\n${joinUrl}`)}`; setShowShare(false); } },
+                    { label: '🔗 Copy Link', action: () => { navigator.clipboard.writeText(joinUrl); alert('Link copied!'); setShowShare(false); } },
+                  ].map(item => (
+                    <button key={item.label} onClick={item.action} className="w-full text-left px-3 py-2 text-sm text-white/70 hover:bg-white/5 rounded-xl transition-colors">
+                      {item.label}
+                    </button>
+                  ));
+                })()}
               </div>
             )}
           </div>
@@ -285,18 +338,23 @@ export default function RoomPage() {
           )}
 
           {/* ── VIDEO GRID (mobile: full flex, desktop: inside left panel) ── */}
-          <div className={`${activeScreenStream ? 'hidden lg:block' : 'flex-1'} lg:flex-none bg-[#0a0516]`}>
-            {/* Mobile: full-screen grid of all participants */}
+          <div className={`${activeScreenStream ? 'block h-32 lg:h-auto' : 'flex-1'} lg:flex-none bg-[#0a0516]`}>
+            {/* Mobile: grid or row of participants */}
             <div className="h-full lg:hidden p-2">
-              <div className={`grid gap-2 h-full ${(allParticipantStreams.length === 0) ? 'grid-cols-1' : allParticipantStreams.length < 2 ? 'grid-cols-2' : 'grid-cols-2'}`}>
+              <div className={`${activeScreenStream ? 'flex flex-row gap-2 overflow-x-auto h-full' : 'grid gap-2 h-full ' + ((allParticipantStreams.length === 0) ? 'grid-cols-1' : allParticipantStreams.length < 2 ? 'grid-cols-1' : 'grid-cols-2')}`}>
                 <UserVideo
                   stream={localStream}
                   muted
-                  label="YOU"
+                  label={
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+                      <span>YOU</span>
+                    </div>
+                  }
                   isMicMuted={isMicMuted}
                   isVideoOff={isVideoOff}
                   username={username}
-                  className={`${activeScreenSharer === userId ? 'ring-2 ring-primary' : ''}`}
+                  className={`${activeScreenStream ? 'w-40 shrink-0' : ''} ${activeScreenSharer === userId ? 'ring-2 ring-primary' : ''}`}
                 />
                 {allParticipantStreams.map(([targetId, stream]) => {
                   const p = room.participants.find(p => p.id === targetId);
@@ -306,27 +364,40 @@ export default function RoomPage() {
                     <UserVideo
                       key={targetId}
                       stream={stream}
-                      label={`${p?.username || 'Guest'} (${connState})`}
+                      label={
+                        <div className="flex items-center gap-1.5">
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            connState === 'connected' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 
+                            connState === 'checking' ? 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]' : 
+                            'bg-red-500 shadow-[0_0_8_px_rgba(239,68,68,0.6)]'
+                          }`} />
+                          <span>{p?.username || 'Guest'}</span>
+                        </div>
+                      }
                       isMicMuted={mediaState.isMicMuted}
                       isVideoOff={mediaState.isVideoOff}
                       username={p?.username}
-                      className={activeScreenSharer === targetId ? 'ring-2 ring-primary' : ''}
+                      className={`${activeScreenStream ? 'w-40 shrink-0' : ''} ${activeScreenSharer === targetId ? 'ring-2 ring-primary' : ''}`}
                     />
                   );
                 })}
-                {allParticipantStreams.length === 0 && (
-                  <div className="flex flex-col items-center justify-center bg-white/[0.02] border border-dashed border-white/10 rounded-2xl p-4">
-                    <Users size={24} className="text-white/10 mb-2" />
-                    <span className="text-[10px] text-white/20 text-center">Invite friends to join</span>
-                  </div>
-                )}
               </div>
             </div>
           </div>
         </div>
 
         {/* ── DESKTOP RIGHT SIDEBAR (Laptop) ── */}
-        <div className="hidden lg:flex w-[360px] flex-col border-l border-white/5 bg-black/60 backdrop-blur-xl fixed right-0 top-14 bottom-[76px] z-20">
+        <div 
+          className="hidden lg:flex flex-col border-l border-white/5 bg-black/20 backdrop-blur-md z-20"
+          style={{ width: `${sidebarWidth}px` }}
+        >
+          {/* Contract/Expand Line (Resize Handle) */}
+          <div 
+            className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-primary/50 transition-colors z-30 group"
+            onMouseDown={() => setIsResizing(true)}
+          >
+            <div className="hidden group-hover:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-0.5 h-8 bg-white/50 rounded-full" />
+          </div>
           <div className="p-4 border-b border-white/5">
             <div className="flex items-center justify-between">
               <h3 className="text-[11px] font-bold text-white/30 uppercase tracking-[0.2em]">Live Presence</h3>
@@ -338,25 +409,52 @@ export default function RoomPage() {
           </div>
           <div className="flex-1 overflow-y-auto p-4">
             <div className="grid grid-cols-2 gap-2">
-              <UserVideo stream={localStream} muted label="YOU" isMicMuted={isMicMuted} isVideoOff={isVideoOff} username={username} className={activeScreenSharer === userId ? 'ring-2 ring-primary' : ''} />
+              <UserVideo 
+                stream={localStream} 
+                muted 
+                label={
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+                    <span>YOU</span>
+                  </div>
+                } 
+                isMicMuted={isMicMuted} 
+                isVideoOff={isVideoOff} 
+                username={username} 
+                className={activeScreenSharer === userId ? 'ring-2 ring-primary' : ''} 
+              />
               {allParticipantStreams.map(([targetId, stream]) => {
                 const p = room.participants.find(p => p.id === targetId);
                 const mediaState = peerMediaStates[targetId] || { isMicMuted: false, isVideoOff: false };
                 const connState = connectionStates[targetId] || 'new';
-                return <UserVideo key={targetId} stream={stream} label={`${p?.username || 'Guest'} (${connState})`} isMicMuted={mediaState.isMicMuted} isVideoOff={mediaState.isVideoOff} username={p?.username} className={activeScreenSharer === targetId ? 'ring-2 ring-primary animate-pulse' : ''} />;
+                return (
+                  <UserVideo 
+                    key={targetId} 
+                    stream={stream} 
+                    label={
+                      <div className="flex items-center gap-1.5">
+                        <span className={`w-1.5 h-1.5 rounded-full ${
+                          connState === 'connected' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 
+                          connState === 'checking' ? 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]' : 
+                          'bg-red-500 shadow-[0_0_8_px_rgba(239,68,68,0.6)]'
+                        }`} />
+                        <span>{p?.username || 'Guest'}</span>
+                      </div>
+                    } 
+                    isMicMuted={mediaState.isMicMuted} 
+                    isVideoOff={mediaState.isVideoOff} 
+                    username={p?.username} 
+                    className={activeScreenSharer === targetId ? 'ring-2 ring-primary animate-pulse' : ''} 
+                  />
+                );
               })}
-              {allParticipantStreams.length === 0 && (
-                <div className="col-span-2 py-8 bg-white/[0.02] border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-center px-4">
-                  <Users size={20} className="text-white/10 mb-2" />
-                  <span className="text-[10px] text-white/20">Invite friends to start a call</span>
-                </div>
-              )}
+
             </div>
           </div>
 
           {/* Desktop chat panel inside sidebar */}
           {isChatOpen && (
-            <div className="flex-1 border-t border-white/5 flex flex-col min-h-0">
+            <div className="flex-[2] border-t border-white/5 flex flex-col min-h-0">
               <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5">
                 <div className="flex items-center gap-2">
                   <MessageSquare size={14} className="text-primary" />
@@ -374,9 +472,18 @@ export default function RoomPage() {
         </div>
       </main>
 
-      {/* ── MOBILE BOTTOM DOCK (Zoom-style) ── */}
-      <nav className="fixed bottom-0 left-0 right-0 shrink-0 bg-black/60 backdrop-blur-xl border-t border-white/5 px-4 py-3 safe-area-bottom z-30">
-        <div className="flex items-center justify-around max-w-sm mx-auto">
+      {/* ── FLOATING BOTTOM DOCK ── */}
+      <nav className={`fixed bottom-6 left-1/2 -translate-x-1/2 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full px-4 py-2 z-30 transition-all duration-300 ${showControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}>
+        <div className="flex items-center gap-1 sm:gap-2">
+          {/* Invite */}
+          <button
+            onClick={() => setShowShare(!showShare)}
+            className="flex flex-col items-center gap-1 p-2 rounded-2xl min-w-[56px] transition-colors bg-white/5 hover:bg-white/10"
+          >
+            <UserPlus size={22} className="text-white/80" />
+            <span className="text-[9px] text-white/40">Invite</span>
+          </button>
+
           {/* Mic */}
           <button
             onClick={() => setIsMicMuted(!isMicMuted)}
