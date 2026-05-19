@@ -76,7 +76,17 @@ export const useWebRTC = (roomId: string, userId: string, socket: Socket | null)
           //   username: "97c6b3266c1531a2a845027e",
           //   credential: "tzAMnyM0GTp6tall",
           // }
+          // TURN fallback
+          // {
+          //   urls: [
+          //     "turn:your-turn-host.pinggy.io:3478?transport=udp",
+          //     "turn:your-turn-host.pinggy.io:3478?transport=tcp"
+          //   ],
+          //   username: "YOUR_USERNAME",
+          //   credential: "YOUR_PASSWORD"
+          // }
         ],
+        iceCandidatePoolSize: 20
       });
 
       peers.current.set(targetId, pc);
