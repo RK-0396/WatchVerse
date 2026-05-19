@@ -206,7 +206,7 @@ export default function RoomPage() {
 
   return (
     <div
-      className="h-screen flex flex-col pb-20 bg-[#0a0516] text-white overflow-hidden"
+      className="h-screen flex flex-col bg-[#0a0516] text-white overflow-hidden"
       style={{ filter: darkMode ? 'none' : 'invert(1) hue-rotate(180deg)' }}
     >
       {/* ── TOP BAR ── */}

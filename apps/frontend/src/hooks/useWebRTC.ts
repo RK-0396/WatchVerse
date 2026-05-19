@@ -71,11 +71,11 @@ export const useWebRTC = (roomId: string, userId: string, socket: Socket | null)
           // IMPORTANT: For WebRTC to work across different networks (e.g. mobile data vs home Wi-Fi),
           // you need to add a TURN server here. STUN only works for direct P2P when NATs are cooperative.
           // Example: { urls: 'turn:your-turn-server.com', username: 'username', credential: 'password' }
-          {
-            urls: "turn:global.relay.metered.ca:80",
-            username: "97c6b3266c1531a2a845027e",
-            credential: "tzAMnyM0GTp6tall",
-          }
+          // {
+          //   urls: "turn:global.relay.metered.ca:80",
+          //   username: "97c6b3266c1531a2a845027e",
+          //   credential: "tzAMnyM0GTp6tall",
+          // }
         ],
       });
 
