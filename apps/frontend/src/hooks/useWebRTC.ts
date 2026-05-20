@@ -172,9 +172,8 @@ export const useWebRTC = (roomId: string, userId: string, socket: Socket | null)
       pc.onnegotiationneeded = async () => {
         try {
           (pc as any).makingOffer = true;
-          const offer = await pc.createOffer();
-          if (pc.signalingState !== 'stable') return;
-          await pc.setLocalDescription(offer);
+          // Use argumentless setLocalDescription() for atomic WebRTC engine-level offer creation and state update
+          await pc.setLocalDescription();
           socket.emit('SIGNALING', { roomId, targetId, senderId: userId, signal: pc.localDescription });
         } catch (e) {
           console.error('Negotiation error', e);
@@ -190,10 +189,25 @@ export const useWebRTC = (roomId: string, userId: string, socket: Socket | null)
     const handleIceRestart = async (targetId: string, pc: RTCPeerConnection) => {
       try {
         if ((pc as any).makingOffer) return;
+        if (pc.signalingState !== 'stable') {
+          console.warn(`ICE restart postponed: connection to ${targetId} is in signaling state: ${pc.signalingState}`);
+          return;
+        }
+
         console.log(`Executing ICE restart offer for target: ${targetId}`);
         (pc as any).makingOffer = true;
-        const offer = await pc.createOffer({ iceRestart: true });
-        await pc.setLocalDescription(offer);
+
+        if (typeof pc.restartIce === 'function') {
+          pc.restartIce();
+        } else {
+          // Fallback to legacy createOffer with iceRestart option if restartIce is not present
+          const offer = await pc.createOffer({ iceRestart: true });
+          await pc.setLocalDescription(offer);
+          socket.emit('SIGNALING', { roomId, targetId, senderId: userId, signal: pc.localDescription });
+          return;
+        }
+
+        await pc.setLocalDescription();
         socket.emit('SIGNALING', { roomId, targetId, senderId: userId, signal: pc.localDescription });
       } catch (err) {
         console.error('ICE restart error:', err);
