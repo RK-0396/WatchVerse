@@ -37,7 +37,13 @@ export class RoomGateway
     if (userId) this.userToSocket.delete(userId);
     if (roomId && userId) {
       this.roomService.removeParticipant(roomId, userId);
+      // Emit USER_LEFT so peers can clean up WebRTC connections
       this.server.to(roomId).emit('USER_LEFT', { userId });
+      // Broadcast authoritative updated ROOM_STATE so participant count stays accurate
+      const updatedRoom = this.roomService.getRoomState(roomId);
+      if (updatedRoom) {
+        this.server.to(roomId).emit('ROOM_STATE', updatedRoom);
+      }
     }
   }
 
@@ -53,17 +59,18 @@ export class RoomGateway
     const { roomId, name, userId, username, passcode } = data;
     const room = this.roomService.createRoom(roomId, name, userId, passcode);
     
-    // Join the creator to the Socket.IO room room
+    // Join the creator to the Socket.IO room
     client.join(roomId);
     client.data.roomId = roomId;
     client.data.userId = userId;
+    // Update socket mapping (handles reconnect case where socketId changed)
     this.userToSocket.set(userId, client.id);
 
-    // Add the creator as a participant so they appear in the list
+    // addParticipant is idempotent: it won't duplicate if userId already present
     this.roomService.addParticipant(roomId, { id: userId, username: username || name, status: 'online' });
-    this.logger.log(`Room created: ${name} (${roomId}) by ${userId}`);
+    this.logger.log(`Room created/joined: ${name} (${roomId}) by ${userId}`);
     
-    // Broadcast updated state to all in the room
+    // Broadcast authoritative ROOM_STATE to all in the room (including creator)
     this.server.to(roomId).emit('ROOM_STATE', this.roomService.getRoomState(roomId));
     return room;
   }
@@ -89,18 +96,18 @@ export class RoomGateway
     client.join(roomId);
     client.data.roomId = roomId;
     client.data.userId = userId;
+    // Update socket mapping (handles reconnect case where socketId changed)
     this.userToSocket.set(userId, client.id);
 
     this.roomService.addParticipant(roomId, { id: userId, username, status: 'online' });
     this.logger.log(`User ${username} joined room ${roomId}`);
 
-    // Notify others
+    // Notify others about the new peer (used by WebRTC to initiate connection)
     client.to(roomId).emit('USER_JOINED', { userId, username });
 
-    // Send UPDATED room state (after participant added) to the joiner
-    client.emit('ROOM_STATE', this.roomService.getRoomState(roomId));
-    // Also broadcast updated state to everyone else so their count updates
-    client.to(roomId).emit('ROOM_STATE', this.roomService.getRoomState(roomId));
+    // Broadcast authoritative ROOM_STATE to ALL in the room including the joiner
+    // This ensures participant count and list are always in sync on every client
+    this.server.to(roomId).emit('ROOM_STATE', this.roomService.getRoomState(roomId));
   }
 
   @SubscribeMessage('SYNC_EVENT')
