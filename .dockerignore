@@ -1,0 +1,30 @@
+# Ignore dependency directories
+node_modules/
+**/node_modules/
+
+# Ignore local builds and output folders
+dist/
+build/
+.next/
+out/
+
+# Ignore local configs and secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Ignore version control systems
+.git/
+.gitignore
+.gitattributes
+
+# Ignore IDE configs
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

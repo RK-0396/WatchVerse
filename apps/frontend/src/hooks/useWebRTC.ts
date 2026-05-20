@@ -13,9 +13,58 @@ export const useWebRTC = (roomId: string, userId: string, socket: Socket | null)
   const [activeScreenSharer, setActiveScreenSharer] = useState<string | null>(null);
   const [peerMediaStates, setPeerMediaStates] = useState<Record<string, { isMicMuted: boolean, isVideoOff: boolean }>>({});
   const [connectionStates, setConnectionStates] = useState<Record<string, string>>({});
+  
+  // Dynamic ICE/TURN configuration state
+  const [iceServers, setIceServers] = useState<RTCIceServer[] | null>(null);
 
+  // 1. Fetch secure ephemeral TURN/STUN credentials from NestJS backend
+  useEffect(() => {
+    let active = true;
+    
+    const fetchTurnCredentials = async () => {
+      try {
+        const getApiUrl = () => {
+          if (typeof window !== 'undefined') {
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+              return `${window.location.protocol}//${window.location.hostname}:3001`;
+            }
+            return window.location.origin;
+          }
+          return 'http://localhost:3001';
+        };
+        const apiUrl = getApiUrl();
+        console.log(`Fetching dynamic TURN credentials from: ${apiUrl}/turn-credentials`);
+        
+        const res = await fetch(`${apiUrl}/turn-credentials?userId=${userId}`);
+        if (!res.ok) throw new Error('Dynamic TURN API returned error response');
+        
+        const data = await res.json();
+        if (active && data && data.iceServers) {
+          console.log('Successfully fetched dynamic TURN/STUN servers:', data.iceServers);
+          setIceServers(data.iceServers);
+        }
+      } catch (err) {
+        console.error('Failed to fetch TURN credentials, using fallback public STUN:', err);
+        if (active) {
+          setIceServers([
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            { urls: 'stun:stun4.l.google.com:19302' }
+          ]);
+        }
+      }
+    };
 
+    fetchTurnCredentials();
+    
+    return () => {
+      active = false;
+    };
+  }, [userId]);
 
+  // 2. Initialize Camera and Mic local streams
   useEffect(() => {
     const initLocalStream = async () => {
       try {
@@ -54,38 +103,17 @@ export const useWebRTC = (roomId: string, userId: string, socket: Socket | null)
     if (!localStream) initLocalStream();
   }, [localStream]);
 
+  // 3. Handle Peer Connection setup, signaling, and candidate exchange
   useEffect(() => {
-    if (!socket || !localStream || !room) return;
+    // Crucial: Wait for dynamic iceServers to be fetched before instantiating peer connections
+    if (!socket || !localStream || !room || !iceServers) return;
 
     const createPeerConnection = (targetId: string, isInitiator: boolean) => {
       if (peers.current.has(targetId)) return peers.current.get(targetId)!;
 
       console.log(`Creating PeerConnection to ${targetId} (Initiator: ${isInitiator})`);
       const pc = new RTCPeerConnection({
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' },
-          { urls: 'stun:stun3.l.google.com:19302' },
-          { urls: 'stun:stun4.l.google.com:19302' },
-          // IMPORTANT: For WebRTC to work across different networks (e.g. mobile data vs home Wi-Fi),
-          // you need to add a TURN server here. STUN only works for direct P2P when NATs are cooperative.
-          // Example: { urls: 'turn:your-turn-server.com', username: 'username', credential: 'password' }
-          // {
-          //   urls: "turn:global.relay.metered.ca:80",
-          //   username: "97c6b3266c1531a2a845027e",
-          //   credential: "tzAMnyM0GTp6tall",
-          // }
-          // TURN fallback
-          // {
-          //   urls: [
-          //     "turn:your-turn-host.pinggy.io:3478?transport=udp",
-          //     "turn:your-turn-host.pinggy.io:3478?transport=tcp"
-          //   ],
-          //   username: "YOUR_USERNAME",
-          //   credential: "YOUR_PASSWORD"
-          // }
-        ],
+        iceServers: iceServers,
         iceCandidatePoolSize: 20
       });
 
@@ -104,6 +132,12 @@ export const useWebRTC = (roomId: string, userId: string, socket: Socket | null)
           ...prev,
           [targetId]: pc.iceConnectionState
         }));
+
+        // Connection resilience: Trigger ICE restart if connection disconnected
+        if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+          console.warn(`Connection lost with ${targetId}, initiating ICE restart...`);
+          handleIceRestart(targetId, pc);
+        }
       };
 
       pc.ontrack = (event) => {
@@ -150,6 +184,22 @@ export const useWebRTC = (roomId: string, userId: string, socket: Socket | null)
       };
 
       return pc;
+    };
+
+    // Connection resilience: Dynamic ICE restart execution
+    const handleIceRestart = async (targetId: string, pc: RTCPeerConnection) => {
+      try {
+        if ((pc as any).makingOffer) return;
+        console.log(`Executing ICE restart offer for target: ${targetId}`);
+        (pc as any).makingOffer = true;
+        const offer = await pc.createOffer({ iceRestart: true });
+        await pc.setLocalDescription(offer);
+        socket.emit('SIGNALING', { roomId, targetId, senderId: userId, signal: pc.localDescription });
+      } catch (err) {
+        console.error('ICE restart error:', err);
+      } finally {
+        (pc as any).makingOffer = false;
+      }
     };
 
     // Initiate calls to existing participants
@@ -248,7 +298,7 @@ export const useWebRTC = (roomId: string, userId: string, socket: Socket | null)
       socket.off('SIGNALING', handleSignaling);
       socket.off('USER_LEFT');
     };
-  }, [socket, roomId, userId, localStream, room]);
+  }, [socket, roomId, userId, localStream, room, iceServers]);
 
   const stopScreenShare = () => {
     setIsScreenSharing(false);

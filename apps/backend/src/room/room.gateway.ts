@@ -52,10 +52,18 @@ export class RoomGateway
   ) {
     const { roomId, name, userId, username, passcode } = data;
     const room = this.roomService.createRoom(roomId, name, userId, passcode);
+    
+    // Join the creator to the Socket.IO room room
+    client.join(roomId);
+    client.data.roomId = roomId;
+    client.data.userId = userId;
+    this.userToSocket.set(userId, client.id);
+
     // Add the creator as a participant so they appear in the list
     this.roomService.addParticipant(roomId, { id: userId, username: username || name, status: 'online' });
     this.logger.log(`Room created: ${name} (${roomId}) by ${userId}`);
-    // Broadcast updated state to all in the room (in case creator re-joined)
+    
+    // Broadcast updated state to all in the room
     this.server.to(roomId).emit('ROOM_STATE', this.roomService.getRoomState(roomId));
     return room;
   }

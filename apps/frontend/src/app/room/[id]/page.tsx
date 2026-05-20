@@ -81,7 +81,7 @@ export default function RoomPage() {
   const messagesFromOthers = useMemo(() => messages.filter(m => m.senderId !== userId), [messages, userId]);
   const unreadCount = isChatOpen ? 0 : messagesFromOthers.length - readMessagesCount;
 
-  const { emitChat, emitCreateRoom, emitSignaling, socket } = useSocket(roomId, userId, username, passcode);
+  const { emitChat, emitCreateRoom, emitSignaling, socket } = useSocket(roomId, userId, username, passcode, initialName || undefined);
   const { localStream, streams, screenStreams, shareScreen, isScreenSharing, localScreenStream, activeScreenSharer, peerMediaStates, connectionStates } = useWebRTC(roomId, userId, socket);
 
   const activeScreenStream = useMemo(() => {
@@ -95,8 +95,6 @@ export default function RoomPage() {
     const nonCameraStreams = uniqueStreams.filter(s => s.id !== cameraStream?.id);
     return nonCameraStreams.length > 0 ? nonCameraStreams[nonCameraStreams.length - 1] : (uniqueStreams[uniqueStreams.length - 1] || null);
   }, [activeScreenSharer, userId, localScreenStream, screenStreams, streams]);
-
-  useEffect(() => { if (initialName) emitCreateRoom(initialName); }, [initialName, emitCreateRoom]);
 
   useEffect(() => {
     if (localStream) {
@@ -305,7 +303,7 @@ export default function RoomPage() {
                   stream={activeScreenStream}
                   muted={activeScreenSharer === userId}
                   label={activeScreenSharer === userId ? 'Your Screen' : 'Shared Screen'}
-                  className="w-full h-full"
+                  className="w-full h-full object-contain"
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center p-8 text-center">
@@ -341,47 +339,117 @@ export default function RoomPage() {
           <div className={`${activeScreenStream ? 'block h-32 lg:h-auto' : 'flex-1'} lg:flex-none bg-[#0a0516]`}>
             {/* Mobile: grid or row of participants */}
             <div className="h-full lg:hidden p-2">
-              <div className={`${activeScreenStream ? 'flex flex-row gap-2 overflow-x-auto h-full' : 'grid gap-2 h-full ' + ((allParticipantStreams.length === 0) ? 'grid-cols-1' : allParticipantStreams.length < 2 ? 'grid-cols-1' : 'grid-cols-2')}`}>
-                <UserVideo
-                  stream={localStream}
-                  muted
-                  label={
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-                      <span>YOU</span>
-                    </div>
-                  }
-                  isMicMuted={isMicMuted}
-                  isVideoOff={isVideoOff}
-                  username={username}
-                  className={`${activeScreenStream ? 'w-40 shrink-0' : ''} ${activeScreenSharer === userId ? 'ring-2 ring-primary' : ''}`}
-                />
-                {allParticipantStreams.map(([targetId, stream]) => {
-                  const p = room.participants.find(p => p.id === targetId);
-                  const mediaState = peerMediaStates[targetId] || { isMicMuted: false, isVideoOff: false };
-                  const connState = connectionStates[targetId] || 'new';
+              {(() => {
+                const total = allParticipantStreams.length + 1;
+                
+                // If screen sharing is active on mobile, use a horizontal scrollbar
+                if (activeScreenStream) {
+                  const scrollWrapperClass = "flex flex-row gap-2 overflow-x-auto h-full w-full items-center";
+                  const childClass = "w-40 shrink-0 aspect-[4/3] min-w-0";
                   return (
+                    <div className={scrollWrapperClass}>
+                      <UserVideo
+                        stream={localStream}
+                        muted
+                        label={
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+                            <span>YOU</span>
+                          </div>
+                        }
+                        isMicMuted={isMicMuted}
+                        isVideoOff={isVideoOff}
+                        username={username}
+                        className={`${childClass} ${activeScreenSharer === userId ? 'ring-2 ring-primary' : ''}`}
+                      />
+                      {allParticipantStreams.map(([targetId, stream]) => {
+                        const p = room.participants.find(p => p.id === targetId);
+                        const mediaState = peerMediaStates[targetId] || { isMicMuted: false, isVideoOff: false };
+                        const connState = connectionStates[targetId] || 'new';
+                        return (
+                          <UserVideo
+                            key={targetId}
+                            stream={stream}
+                            label={
+                              <div className="flex items-center gap-1.5">
+                                <span className={`w-1.5 h-1.5 rounded-full ${
+                                  connState === 'connected' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 
+                                  connState === 'checking' ? 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]' : 
+                                  'bg-red-500 shadow-[0_0_8_px_rgba(239,68,68,0.6)]'
+                                }`} />
+                                <span>{p?.username || 'Guest'}</span>
+                              </div>
+                            }
+                            isMicMuted={mediaState.isMicMuted}
+                            isVideoOff={mediaState.isVideoOff}
+                            username={p?.username}
+                            className={`${childClass} ${activeScreenSharer === targetId ? 'ring-2 ring-primary' : ''}`}
+                          />
+                        );
+                      })}
+                    </div>
+                  );
+                }
+
+                // If no screen sharing, use dynamic, viewport-constrained flex/grid layouts
+                let wrapperClass = "flex flex-col gap-2 h-full w-full";
+                let childClass = "flex-1 min-h-0 w-full aspect-auto";
+
+                if (total === 1) {
+                  wrapperClass = "flex flex-col gap-2 h-full w-full justify-center";
+                  childClass = "flex-1 min-h-0 w-full aspect-auto";
+                } else if (total === 2) {
+                  wrapperClass = "flex flex-col gap-2 h-full w-full justify-center";
+                  childClass = "flex-1 min-h-0 w-full aspect-auto";
+                } else if (total >= 3) {
+                  wrapperClass = "grid grid-cols-2 grid-rows-2 gap-2 h-full w-full";
+                  childClass = "h-full w-full aspect-auto min-h-0";
+                }
+
+                return (
+                  <div className={wrapperClass}>
                     <UserVideo
-                      key={targetId}
-                      stream={stream}
+                      stream={localStream}
+                      muted
                       label={
                         <div className="flex items-center gap-1.5">
-                          <span className={`w-1.5 h-1.5 rounded-full ${
-                            connState === 'connected' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 
-                            connState === 'checking' ? 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]' : 
-                            'bg-red-500 shadow-[0_0_8_px_rgba(239,68,68,0.6)]'
-                          }`} />
-                          <span>{p?.username || 'Guest'}</span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+                          <span>YOU</span>
                         </div>
                       }
-                      isMicMuted={mediaState.isMicMuted}
-                      isVideoOff={mediaState.isVideoOff}
-                      username={p?.username}
-                      className={`${activeScreenStream ? 'w-40 shrink-0' : ''} ${activeScreenSharer === targetId ? 'ring-2 ring-primary' : ''}`}
+                      isMicMuted={isMicMuted}
+                      isVideoOff={isVideoOff}
+                      username={username}
+                      className={`${childClass} ${activeScreenSharer === userId ? 'ring-2 ring-primary' : ''}`}
                     />
-                  );
-                })}
-              </div>
+                    {allParticipantStreams.map(([targetId, stream]) => {
+                      const p = room.participants.find(p => p.id === targetId);
+                      const mediaState = peerMediaStates[targetId] || { isMicMuted: false, isVideoOff: false };
+                      const connState = connectionStates[targetId] || 'new';
+                      return (
+                        <UserVideo
+                          key={targetId}
+                          stream={stream}
+                          label={
+                            <div className="flex items-center gap-1.5">
+                              <span className={`w-1.5 h-1.5 rounded-full ${
+                                connState === 'connected' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 
+                                connState === 'checking' ? 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]' : 
+                                'bg-red-500 shadow-[0_0_8_px_rgba(239,68,68,0.6)]'
+                              }`} />
+                              <span>{p?.username || 'Guest'}</span>
+                            </div>
+                          }
+                          isMicMuted={mediaState.isMicMuted}
+                          isVideoOff={mediaState.isVideoOff}
+                          username={p?.username}
+                          className={`${childClass} ${activeScreenSharer === targetId ? 'ring-2 ring-primary' : ''}`}
+                        />
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>

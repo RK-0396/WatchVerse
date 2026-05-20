@@ -4,12 +4,13 @@ import { useRoomStore } from '@/store/useRoomStore';
 import { SyncMessage, Room, ChatMessage } from '@watchverse/types';
 
 const getSocketUrl = () => {
-  if (process.env.NEXT_PUBLIC_WS_URL) return process.env.NEXT_PUBLIC_WS_URL;
-  if (typeof window !== 'undefined') return window.location.origin;
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
   return 'http://localhost:3000';
 };
 
-export const useSocket = (roomId: string, userId: string, username: string, passcode?: string) => {
+export const useSocket = (roomId: string, userId: string, username: string, passcode?: string, initialName?: string) => {
   const socketRef = useRef<Socket | null>(null);
   const { setRoom, updateMedia, addMessage, removeParticipant, addParticipant } = useRoomStore();
 
@@ -23,7 +24,11 @@ export const useSocket = (roomId: string, userId: string, username: string, pass
 
     socket.on('connect', () => {
       console.log('Connected to socket server');
-      socket.emit('JOIN_ROOM', { roomId, userId, username, passcode });
+      if (initialName) {
+        socket.emit('CREATE_ROOM', { roomId, name: initialName, userId, username, passcode });
+      } else {
+        socket.emit('JOIN_ROOM', { roomId, userId, username, passcode });
+      }
     });
 
     socket.on('ROOM_STATE', (room: Room) => {

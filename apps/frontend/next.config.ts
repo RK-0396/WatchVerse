@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
+
 const nextConfig: NextConfig = {
   devIndicators: false,
   allowedDevOrigins: ['stony-hardener-emergency.ngrok-free.dev'],
@@ -7,11 +9,15 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/socket',
-        destination: 'http://127.0.0.1:3001/socket.io/',
+        destination: `${BACKEND_URL}/socket.io/`,
       },
       {
         source: '/api/socket/:path*',
-        destination: 'http://127.0.0.1:3001/socket.io/:path*',
+        destination: `${BACKEND_URL}/socket.io/:path*`,
+      },
+      {
+        source: '/turn-credentials',
+        destination: `${BACKEND_URL}/turn-credentials`,
       },
     ];
   },

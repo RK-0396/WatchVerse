@@ -73,21 +73,28 @@ export const UserVideo = ({ stream, muted = false, label, className, isMicMuted,
 
   return (
     <div className={`bg-white/5 rounded-2xl relative overflow-hidden border transition-all ${isSpeaking ? 'border-green-500 shadow-[0_0_20px_rgba(34,197,94,0.3)] ring-2 ring-green-500/50' : 'border-white/10'} group ${className || 'aspect-[4/3] hover:scale-[1.02]'}`}>
-      {stream && !isVideoOff ? (
+      {/* Video element: always rendered if stream is present to maintain audio streaming */}
+      {stream && (
         <video 
           ref={videoRef} 
           autoPlay 
           playsInline 
           muted={muted} 
-          className={`w-full h-full ${className && className.includes('w-full') ? 'object-contain' : 'object-cover'}`}
+          className={`w-full h-full ${isVideoOff ? 'hidden' : ''} ${className && className.includes('object-contain') ? 'object-contain' : 'object-cover'}`}
         />
-      ) : isVideoOff ? (
+      )}
+      
+      {/* Avatar placeholder: shown when video is toggled off */}
+      {isVideoOff && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40">
           <div className="w-16 h-16 rounded-full bg-primary/20 border border-primary/50 flex items-center justify-center text-2xl font-bold text-primary">
             {username ? username.charAt(0).toUpperCase() : (typeof label === 'string' ? label.charAt(0).toUpperCase() : '?')}
           </div>
         </div>
-      ) : (
+      )}
+
+      {/* Loading spinner: shown when stream is loading and video is on */}
+      {!stream && !isVideoOff && (
         <div className="absolute inset-0 flex items-center justify-center text-white/10">
           <div className="w-12 h-12 rounded-full border-2 border-white/5 border-t-primary animate-spin" />
         </div>

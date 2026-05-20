@@ -23,6 +23,10 @@ services:
       - MONGODB_URI=mongodb://mongodb:27017/watchverse
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=supersecretchangeinproduction
+      - TURN_SECRET=supersecretturnkeychangeinproduction
+      - TURN_REALM=turn.watchverse.com
+      - TURN_HOST=192.168.1.3
+      - TURN_PORT=3478
     depends_on:
       - mongodb
       - redis
@@ -36,8 +40,27 @@ services:
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:3001
       - NEXT_PUBLIC_WS_URL=ws://localhost:3001
+      - BACKEND_URL=http://backend:3001
     depends_on:
       - backend
+
+  coturn:
+    build:
+      context: .
+      dockerfile: ./infra/coturn/Dockerfile
+    # For Windows/macOS local testing, bridge mode works fine with 3478 mapped.
+    # Note: On a production Linux VPS, run with: network_mode: "host" 
+    # to avoid docker-proxy overhead for dynamic relay ports (49152-65535).
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "5349:5349/udp"
+      - "5349:5349/tcp"
+      - "49160-49260:49160-49260/udp"
+    environment:
+      - TURN_SECRET=supersecretturnkeychangeinproduction
+      - TURN_REALM=turn.watchverse.com
+    restart: always
 
 volumes:
   mongodb_data:

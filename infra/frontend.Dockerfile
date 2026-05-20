@@ -1,4 +1,4 @@
-FROM node:20-alpine AS development
+FROM node:20-alpine
 
 WORKDIR /usr/src/app
 
@@ -10,8 +10,11 @@ RUN npm install
 
 COPY . .
 
+# Build both type packages and the Next.js frontend application
 RUN npm run build -w @watchverse/types
+RUN npm run build -w @watchverse/frontend
 
 EXPOSE 3000
 
-CMD ["npm", "run", "dev", "-w", "@watchverse/frontend"]
+# Start in production mode for absolute stability
+CMD ["npm", "run", "start", "-w", "@watchverse/frontend"]
