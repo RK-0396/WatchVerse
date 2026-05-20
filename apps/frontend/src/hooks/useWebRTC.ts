@@ -44,14 +44,23 @@ export const useWebRTC = (roomId: string, userId: string, socket: Socket | null)
           setIceServers(data.iceServers);
         }
       } catch (err) {
-        console.error('Failed to fetch TURN credentials, using fallback public STUN:', err);
+        console.error('Failed to fetch TURN credentials, using fallback public STUN/TURN:', err);
         if (active) {
           setIceServers([
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
             { urls: 'stun:stun2.l.google.com:19302' },
             { urls: 'stun:stun3.l.google.com:19302' },
-            { urls: 'stun:stun4.l.google.com:19302' }
+            { urls: 'stun:stun4.l.google.com:19302' },
+            {
+              urls: [
+                'turn:openrelay.metered.ca:80',
+                'turn:openrelay.metered.ca:443',
+                'turn:openrelay.metered.ca:443?transport=tcp'
+              ],
+              username: 'openrelayproject',
+              credential: 'openrelayproject'
+            }
           ]);
         }
       }
@@ -163,7 +172,7 @@ export const useWebRTC = (roomId: string, userId: string, socket: Socket | null)
         });
       };
 
-      const polite = !isInitiator;
+      const polite = userId < targetId;
       // We will attach an object to pc to hold our negotiation state
       (pc as any).makingOffer = false;
       (pc as any).ignoreOffer = false;
@@ -247,6 +256,11 @@ export const useWebRTC = (roomId: string, userId: string, socket: Socket | null)
           if ((pc as any).ignoreOffer) {
             console.log('Ignoring colliding offer');
             return;
+          }
+
+          if (offerCollision) {
+            console.log('Offer collision detected, rolling back local offer');
+            await pc.setLocalDescription({ type: 'rollback' });
           }
 
           await pc.setRemoteDescription(new RTCSessionDescription(signal));

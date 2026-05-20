@@ -16,6 +16,32 @@ export class TurnService {
    * Based on standard REST API auth specifications (RFC 5766).
    */
   generateCredentials(userId: string) {
+    // Check if custom TURN credentials are provided in the environment
+    const customUrls = process.env.TURN_URLS;
+    const customUsername = process.env.TURN_USERNAME;
+    const customCredential = process.env.TURN_CREDENTIAL;
+
+    if (customUrls && customUsername && customCredential) {
+      this.logger.log(`Using custom environment TURN credentials for user: ${userId}`);
+      const urlsArray = customUrls.split(',').map(url => url.trim());
+      return {
+        iceServers: [
+          {
+            urls: [
+              'stun:stun.l.google.com:19302',
+              'stun:stun1.l.google.com:19302'
+            ]
+          },
+          {
+            urls: urlsArray,
+            username: customUsername,
+            credential: customCredential
+          }
+        ],
+        ttl: 24 * 3600
+      };
+    }
+
     // 1. Establish expiration time (e.g., 24 hours in the future)
     const expirySeconds = Math.floor(Date.now() / 1000) + 24 * 3600;
 
@@ -49,6 +75,16 @@ export class TurnService {
             ],
             username: username,
             credential: credential
+          },
+          // Open Relay Project (Metered.ca) global fallbacks for cross-network mobile/ngrok testing
+          {
+            urls: [
+              'turn:openrelay.metered.ca:80',
+              'turn:openrelay.metered.ca:443',
+              'turn:openrelay.metered.ca:443?transport=tcp'
+            ],
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
           }
         ],
         ttl: 24 * 3600
