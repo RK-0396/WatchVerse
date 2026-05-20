@@ -3,7 +3,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { MicOff, Maximize } from 'lucide-react';
 
-export const UserVideo = ({ stream, muted = false, label, className, isMicMuted, isVideoOff, username }: { stream: MediaStream | null; muted?: boolean; label: React.ReactNode; className?: string; isMicMuted?: boolean; isVideoOff?: boolean; username?: string }) => {
+export const UserVideo = ({ stream, muted = false, label, className, isMicMuted, isVideoOff, username, isLocal = false }: { stream: MediaStream | null; muted?: boolean; label: React.ReactNode; className?: string; isMicMuted?: boolean; isVideoOff?: boolean; username?: string; isLocal?: boolean }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
 
@@ -81,6 +81,7 @@ export const UserVideo = ({ stream, muted = false, label, className, isMicMuted,
           playsInline 
           muted={muted} 
           className={`w-full h-full ${isVideoOff ? 'hidden' : ''} ${className && className.includes('object-contain') ? 'object-contain' : 'object-cover'}`}
+          style={isLocal ? { transform: 'scaleX(-1)' } : undefined}
         />
       )}
       

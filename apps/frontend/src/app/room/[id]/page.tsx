@@ -351,6 +351,7 @@ export default function RoomPage() {
                       <UserVideo
                         stream={localStream}
                         muted
+                        isLocal
                         label={
                           <div className="flex items-center gap-1.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
@@ -411,6 +412,7 @@ export default function RoomPage() {
                     <UserVideo
                       stream={localStream}
                       muted
+                      isLocal
                       label={
                         <div className="flex items-center gap-1.5">
                           <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
@@ -480,6 +482,7 @@ export default function RoomPage() {
               <UserVideo 
                 stream={localStream} 
                 muted 
+                isLocal
                 label={
                   <div className="flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
@@ -646,7 +649,7 @@ export default function RoomPage() {
               </button>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <UserVideo stream={localStream} muted label="YOU" isMicMuted={isMicMuted} isVideoOff={isVideoOff} username={username} className={activeScreenSharer === userId ? 'ring-2 ring-primary' : ''} />
+              <UserVideo stream={localStream} muted isLocal label="YOU" isMicMuted={isMicMuted} isVideoOff={isVideoOff} username={username} className={activeScreenSharer === userId ? 'ring-2 ring-primary' : ''} />
               {allParticipantStreams.map(([targetId, stream]) => {
                 const p = room.participants.find(p => p.id === targetId);
                 const mediaState = peerMediaStates[targetId] || { isMicMuted: false, isVideoOff: false };
