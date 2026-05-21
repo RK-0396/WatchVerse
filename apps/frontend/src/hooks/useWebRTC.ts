@@ -25,9 +25,6 @@ export const useWebRTC = (roomId: string, userId: string, socket: Socket | null)
       try {
         const getApiUrl = () => {
           if (typeof window !== 'undefined') {
-            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-              return `${window.location.protocol}//${window.location.hostname}:3001`;
-            }
             return window.location.origin;
           }
           return 'http://localhost:3001';
